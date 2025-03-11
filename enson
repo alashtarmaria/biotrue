@@ -1,0 +1,135 @@
+// **?? UART4 Baslatma Fonksiyonu**
+
+void UART4_Init_Config(unsigned long baudrate) {
+    PPS_Mapping(71, _INPUT,  _U4RX);  // UART4 RX (Pin 71)
+    PPS_Mapping(70, _OUTPUT, _U4TX);  // UART4 TX (Pin 70)
+
+    UART4_Init(baudrate);  // UART4 baslat
+    Delay_ms(100);
+}
+
+// **?? SPI ve ADC Pin Tanimlamalari (MCP3208 için)**
+#define ADC_CS  LATF.F8  // Chip Select pini (RP104 / RF8) **? DÜZELTILDI**
+#define ADC_CLK LATF.F0  // Saat sinyali (RP96 / RF0)
+#define ADC_DOUT PORTF.F2 // Veri çikisi (RP98 / RF2) (MISO)
+#define ADC_DIN  LATF.F1  // Veri girisi (RP97 / RF1) (MOSI)
+
+// **?? SPI Baslatma Fonksiyonu**
+void SPI_Init() {
+    TRISF.F8 = 0; // CS çikis **? DÜZELTILDI**
+    TRISF.F0 = 0; // CLK çikis
+    TRISF.F2 = 1; // DOUT giris (MISO)
+    TRISF.F1 = 0; // DIN çikis (MOSI)
+
+    SPI1_Init(); // SPI baslat
+    Delay_ms(100);
+}
+
+// **?? ADC Okuma Fonksiyonu (MCP3208 - CHx)**
+unsigned int Read_ADC(unsigned char channel) {
+    unsigned int result;
+
+    ADC_CS = 0;  // ADC'yi aktif et
+    Delay_ms(1); // ADC'nin cevap vermesini bekle
+
+    SPI1_Write(0x06 | (channel >> 2));  // Baslangiç biti + kanal seçimi
+    SPI1_Write(channel << 6); // Kanali tam olarak belirle
+    result = (SPI1_Read(0x00) & 0x0F) << 8; // Ilk 4 biti at, son 12 biti oku
+    result |= SPI1_Read(0x00); // Devamini oku
+
+    ADC_CS = 1; // ADC'yi pasif hale getir
+
+    return result;
+}
+
+// **?? ADC Okuma Sonucunu Bit Bit Gösteren Fonksiyon (HATA TAKIBI)**
+void Print_ADC_Bits(unsigned int value) {
+    char bit_str[20];
+    unsigned char i;
+
+    for (i = 0; i < 12; i++) {
+        bit_str[i] = (value & (1 << (11 - i))) ? '1' : '0';
+    }
+    bit_str[12] = '\0'; // String sonlandirici
+
+    UART4_Write_Text("ADC Bits: ");
+    UART4_Write_Text(bit_str);
+    UART4_Write_Text("\r\n");
+}
+
+// **?? Sicaklik Hesaplama Fonksiyonu**
+float Calculate_Temperature(unsigned int adc_value) {
+    float voltage = (adc_value * 4.096) / 4095.0;  // **? ADC’yi voltaja çevir (Ref = 4.096V)**
+    float temperature = (voltage - 0.400) / 0.0195;  // **? MCP9701 formülü**
+    return temperature;
+}
+
+ /*
+void main() {
+    unsigned int adc_tempA, adc_tempB;
+    float tempA, tempB;
+    char tempA_str[10], tempB_str[10];
+
+    // **? Mikrodenetleyici PLL Ayarlari**
+    PLLFBD = 70;  // PLL multiplier M=70
+    CLKDIV = 0x0000;  // PLL prescaler N1=2, PLL postscaler N2=2
+
+    SPI_Init();
+    UART4_Init_Config(9600);  // **? UART 9600 baudrate olarak baslat**
+
+    UART4_Write_Text("UART Started\r\n");
+
+    // **? ADC'den TEMP_A ve TEMP_B Degerlerini Oku**
+    adc_tempA = Read_ADC(1);  // **? TEMP_A için CH1**
+    adc_tempB = Read_ADC(2);  // **? TEMP_B için CH2**
+
+    // **? ADC Verisini BIT BIT Yazdir (Hata Takibi için)**
+    Print_ADC_Bits(adc_tempA);
+    Print_ADC_Bits(adc_tempB);
+
+    // **? ADC'den okunan veriyi sicakliga çevir**
+    tempA = Calculate_Temperature(adc_tempA);
+    tempB = Calculate_Temperature(adc_tempB);
+
+    // **? Sayilari stringe çevir**
+    FloatToStr(tempA, tempA_str);
+    FloatToStr(tempB, tempB_str);
+
+    // **? UART ile sicaklik degerlerini gönder**
+    UART4_Write_Text("TEMP_A: ");
+    UART4_Write_Text(tempA_str);
+    UART4_Write_Text(" C | TEMP_B: ");
+    UART4_Write_Text(tempB_str);
+    UART4_Write_Text(" C\r\n");
+}
+      */
+
+
+void main() {
+    unsigned int adc_values[8]; // 8 Kanalli ADC
+    char adc_str[10];
+    unsigned char i;
+
+    PLLFBD = 70;  // PLL multiplier M=70
+    CLKDIV = 0x0000;  // PLL prescaler N1=2, PLL postscaler N2=2
+
+    SPI_Init();
+    UART4_Init_Config(9600);  // UART baslat
+
+    UART4_Write_Text("UART Started\r\n");
+
+    // **Tüm ADC kanallarini oku ve degeri yazdir**
+    for (i = 0; i < 8; i++) {
+        adc_values[i] = Read_ADC(i);
+
+        // ADC degerini stringe çevir
+        IntToStr(adc_values[i], adc_str);
+
+        UART4_Write_Text("ADC CH");
+        UART4_Write(i + '0'); // Kanal numarasini yaz
+        UART4_Write_Text(": ");
+        UART4_Write_Text(adc_str);
+        UART4_Write_Text("\r\n");
+    }
+}
+
