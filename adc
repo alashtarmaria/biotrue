@@ -1,0 +1,68 @@
+// UART4 Baslatma Fonksiyonu
+void UART4_Init_Config(unsigned long baudrate) {
+    PPS_Mapping(71, _INPUT,  _U4RX);  // UART4 RX (Pin 71)
+    PPS_Mapping(70, _OUTPUT, _U4TX);  // UART4 TX (Pin 70)
+
+    UART4_Init(baudrate);  // UART4 baslat
+    Delay_ms(100);
+}
+
+// SPI ve ADC Pin Tanimlamalari
+#define ADC_CS  LATG.F0  // Chip Select pini (RP112 / RG0)
+#define ADC_CLK LATF.F0  // Saat sinyali (RP96 / RF0)
+#define ADC_DOUT PORTF.F2 // Veri çikisi (RP98 / RF2) (MISO)
+#define ADC_DIN  LATF.F1  // Veri girisi (RP97 / RF1) (MOSI)
+
+// SPI Baslatma Fonksiyonu
+void SPI_Init() {
+    TRISG.F0 = 0; // CS çikis
+    TRISF.F0 = 0; // CLK çikis
+    TRISF.F2 = 1; // DOUT giris (MISO)
+    TRISF.F1 = 0; // DIN çikis (MOSI)
+
+    // SPI'yi baslat (Fosc/16 hizinda)
+    SPI1_Init();
+}
+
+
+// ADC Okuma Fonksiyonu
+unsigned int Read_ADC(unsigned char channel) {
+    unsigned int result;
+
+    ADC_CS = 0;  // ADC'yi aktif et
+    SPI1_Write(0x06 | (channel >> 2));  // Baslangiç biti + kanal seçimi
+    SPI1_Write(channel << 6); // Kanali tam olarak belirle
+    result = (SPI1_Read(0) << 8) | SPI1_Read(0); // 12-bit ADC verisini oku
+    ADC_CS = 1; // ADC'yi pasif hale getir
+
+    return result;
+}
+
+void main() {
+    unsigned int adc_value;
+    float voltage;
+    char adc_str[10], voltage_str[10];
+
+    SPI_Init();
+    UART4_Init_Config(9600);  // Baudrate 9600 olarak belirle
+    UART4_Write_Text("test");
+
+    while(1) {
+
+        adc_value = Read_ADC(0); // CH0 kanalindan ADC oku
+        voltage = (adc_value * 4.096) / 4095.0;  // 12-bit ADC’yi voltaja çevir
+
+        // Sayilari stringe çevir
+        IntToStr(adc_value, adc_str);
+        FloatToStr(voltage, voltage_str);
+
+        // UART ile ADC ve Voltaj degerlerini gönder
+        UART4_Write_Text("ADC: ");
+        UART4_Write_Text(adc_str);
+        UART4_Write_Text(" | Voltaj: ");
+        UART4_Write_Text(voltage_str);
+        UART4_Write_Text(" V\r\n");
+
+        Delay_ms(1000);
+    }
+}
