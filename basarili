@@ -1,5 +1,3 @@
-// 6 doðru
-// ?? UART4 Baslatma Fonksiyonu
 void UART4_Init_Config(unsigned long baudrate) {
     PPS_Mapping(71, _INPUT,  _U4RX);  // UART4 RX (Pin 71)
     PPS_Mapping(70, _OUTPUT, _U4TX);  // UART4 TX (Pin 70)
@@ -88,24 +86,4 @@ void main() {
         SPI_Loopback_Test();
         Delay_ms(1000);
     }
-}
-
-// ilk hariç
-void SPI1_Custom_Init() {
-    unsigned char dummy;  // ✅ Değişkeni fonksiyonun başında tanımla!
-
-    SPI1STATbits.SPIEN = 0; // SPI'yi kapat
-
-    // Tüm SPI Register'ları temizle
-    SPI1CON1 = 0x0000;
-    SPI1CON2 = 0x0000;
-    SPI1STAT = 0x0000;
-    Delay_ms(10);
-
-    SPI1CON1 = 0x0130; // Master Mode, Clock = Fosc/128, Idle Low, Sample Middle
-    SPI1STATbits.SPIROV = 0; // Overflow bayrağını temizle
-    SPI1STATbits.SPIEN = 1;  // SPI'yi aktif et
-
-    // ?? **İlk veri gönderimi için dummy read yap**
-    dummy = SPI1BUF;  // ✅ Şimdi hata olmadan çalışacaktır!
 }
