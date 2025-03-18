@@ -1,0 +1,110 @@
+char buffer[64];  // UART veri göndermek için buffer
+
+// **UART3 Baslatma Fonksiyonu**
+void UART3_Init_Config(unsigned long baudrate) {
+    PPS_Mapping(69, _INPUT,  _U3RX);  // UART3 RX
+    PPS_Mapping(68, _OUTPUT, _U3TX);  // UART3 TX
+    UART3_Init(baudrate);
+    Delay_ms(100);
+}
+
+// **SPI PPS Konfigürasyonu**
+void SPI1_PPS_Init() {
+    PPS_Mapping(96, _OUTPUT, _SCK1OUT);  // SPI Clock (SCK) -> RP96 (RF0)
+    PPS_Mapping(97, _OUTPUT, _SDO1);     // SPI MOSI (Master Out Slave In) -> RP97 (RF1)
+    PPS_Mapping(98, _INPUT, _SDI1);      // SPI MISO (Master In Slave Out) -> RP98 (RF2)
+    PPS_Mapping(104, _OUTPUT, _SS1OUT);  // SPI CS (Chip Select) -> RP104 (RF8)
+
+    TRISF.F0 = 0; // SCK (Clock) çikis
+    TRISF.F1 = 0; // MOSI (Data Out) çikis
+    TRISF.F2 = 1; // MISO (Data In) giris
+    TRISF.F8 = 0; // CS (Chip Select) çikis
+    LATF.F8 = 1;  // **SS'yi HIGH yap (Bastaki default durum)**
+}
+
+// **SPI Baslatma Fonksiyonu**
+void SPI1_Initialize_Master() {
+    SPI1_Init();  // **MikroC'nin hazir SPI baslatma fonksiyonu**
+}
+
+unsigned int MCP3208_Read_SPI(unsigned char channel) {
+    unsigned char msb, lsb;
+    unsigned int adcValue;
+    unsigned char command;
+
+    // **Arduino koduna göre kanal adresleme ayari**
+    unsigned char channelBits = channel << 6;
+
+    // **Baslangiç biti (Arduino ile uyumlu)**
+    if (channel > 3)
+        command = 0b00000111;  // Kanal 4-7
+    else
+        command = 0b00000110;  // Kanal 0-3
+
+    LATF.F8 = 0; // **SS LOW: SPI baslat**
+
+    SPI1_Write(command);      // **Baslangiç komutunu gönder**
+    msb = SPI1_Read(channelBits);  // **Ilk veri oku (MSB)**
+    lsb = SPI1_Read(0x00);         // **Ikinci veri oku (LSB)**
+
+    LATF.F8 = 1; // **SS HIGH: SPI bitir**
+
+    // **ADC 12-bit verisini olustur (Arduino ile ayni mantik)**
+    msb = msb & 0b00001111;  // **Üst 4 bit temizlendi (Arduino kodu ile uyumlu)**
+    adcValue = (msb << 8) | lsb;  // **MSB ve LSB birlestirildi**
+
+    return adcValue;
+}
+
+
+// **Ana Program (Main)**
+void main() {
+    unsigned int x;        // Dijital deger (ADC sonucu)
+    char x_txt[7];         // Dijital degeri metne çevirme için
+    float y;               // Analog voltaj degeri
+    char y_txt[10];        // Voltaj degeri metne çevirme için
+    int i;                 // Döngü sayaci
+    int channel;
+
+    PLLFBD = 70;
+    CLKDIV = 0x0000;
+
+    // **ÖNCE SPI ve UART Baslat**
+    SPI1_PPS_Init();  // **PPS Pinleri Ayarla**
+    SPI1_Initialize_Master();  // **SPI Baslat**
+    UART3_Init_Config(9600);   // **UART Baslat**
+
+    UART3_Write_Text("SPI ile ADC Okuma Basladi...\r\n");
+
+    for (;;) {  // Sonsuz döngü (Sürekli okuma)
+        UART3_Write_Text("======================= ");
+        sprintf(x_txt, "%d", i + 1);
+        UART3_Write_Text(x_txt);
+        UART3_Write_Text("\r\n");
+
+        for (channel = 0; channel < 8; channel++) {  // 0'dan 7'ye kadar 8 kanal
+            x = MCP3208_Read_SPI(channel);  // **ADC degerini SPI üzerinden oku**
+            sprintf(x_txt, "%u", x);  // Dijital degeri string'e çevir
+
+            // **Dijital degeri UART üzerinden gönder**
+            sprintf(buffer, "%d. Kanal Digital: ", channel);
+            UART3_Write_Text(buffer);
+            UART3_Write_Text(x_txt);
+            UART3_Write_Text("\r\n");
+
+            // **Voltaja Dönüstürme (4.096V Referans)**
+            y = x * (4.096 / 4096.0);
+            sprintf(y_txt, "%.3f", y);  // Float degeri string'e çevir
+
+            // **Analog Voltaji UART Üzerinden Gönder**
+            sprintf(buffer, "%d. Kanal Analog: ", channel);
+            UART3_Write_Text(buffer);
+            UART3_Write_Text(y_txt);
+            UART3_Write_Text(" V\r\n");
+
+            Delay_ms(500);  // 500 ms bekle
+        }
+
+        Delay_ms(1000);  // 1 saniye bekle
+    }
+}
