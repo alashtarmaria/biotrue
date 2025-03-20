@@ -1,4 +1,3 @@
-// uart library 
 // perpheral pin select library 
 // rx - tx 
 // tx - rx 
