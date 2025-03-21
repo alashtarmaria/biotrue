@@ -1,4 +1,4 @@
-// Konfigürasyon Ayarlari
+
 void UART3_Init_Config(unsigned long baudrate) {
     PPS_Mapping(69, _INPUT, _U3RX);  // UART3 RX'i RP69'a esle
     PPS_Mapping(68, _OUTPUT, _U3TX); // UART3 TX'i RP68'e esle
