@@ -1,3 +1,17 @@
+/*
+
+Bu satırı görmek = ✅ SPI sorunsuz
+✅ WREN başarılı
+✅ 3-byte adres doğru
+✅ EEPROM yazma ve okuma %100 tamamlandı
+
+
+
+*/
+
+
+
+
 // === SABİTLER ===
 #define EEPROM_CMD_WREN   0x06
 #define EEPROM_CMD_WRITE  0x02
