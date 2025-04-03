@@ -1,381 +1,119 @@
-/*
-#define EEPROM_CS_TRIS   TRISFbits.TRISF12
-#define EEPROM_CS_LAT    LATFbits.LATF12
-
-void EEPROM_CS_Enable()  { EEPROM_CS_LAT = 0; }
-void EEPROM_CS_Disable() { EEPROM_CS_LAT = 1; }
-
-void EEPROM_Write_Enable() {
-    EEPROM_CS_Enable();
-    SPI1_Write(0x06); // WREN
-    EEPROM_CS_Disable();
-    Delay_us(5);
-}
-
-void EEPROM_Write_Bytes(unsigned int addr, char* dta, unsigned char len) {
-    unsigned char i;
-
-    EEPROM_Write_Enable();
-    EEPROM_CS_Enable();
-
-    SPI1_Write(0x02); // WRITE opcode
-    SPI1_Write((addr >> 8) & 0xFF); // Address high byte
-    SPI1_Write(addr & 0xFF);        // Address low byte
-
-    for (i = 0; i < len; i++) {
-        SPI1_Write(dta[i]);
-    }
-
-    EEPROM_CS_Disable();
-    Delay_ms(10); // Write delay
-}
-
-void EEPROM_Read_Bytes(unsigned int addr, char* buffer, unsigned char len) {
-    unsigned char i;
-
-    EEPROM_CS_Enable();
-
-    SPI1_Write(0x03); // READ opcode
-    SPI1_Write((addr >> 8) & 0xFF);
-    SPI1_Write(addr & 0xFF);
-
-    for (i = 0; i < len; i++) {
-        buffer[i] = SPI1_Read(0xFF);
-    }
-
-    EEPROM_CS_Disable();
-}
-
-void EEPROM_Read_JEDEC_ID() {
-    unsigned char id1, id2, id3;
-    char txt[64];
-    EEPROM_CS_Enable();
-    SPI1_Write(0x9F);
-    id1 = SPI1_Read(0xFF);
-    id2 = SPI1_Read(0xFF);
-    id3 = SPI1_Read(0xFF);
-    EEPROM_CS_Disable();
-
-
-    sprintf(txt, "JEDEC ID => 0x%02X 0x%02X 0x%02X\r\n", id1, id2, id3);
-    UART3_Write_Text(txt);
-}
-void SPI1_PPS_Init() {
-    // SPI1: Master mode pin ayarlari
-    PPS_Mapping(96, _OUTPUT, _SCK1OUT);  // SPI Clock
-    PPS_Mapping(97, _OUTPUT, _SDO1);     // MOSI
-    PPS_Mapping(98, _INPUT,  _SDI1);     // MISO
-    PPS_Mapping(108, _OUTPUT, _SS1OUT);  // Chip Select default (opsiyonel)
-
-    // SPI pin yönleri
-    TRISF.F0 = 0;   // SCK -> output
-    TRISF.F1 = 0;   // SDO -> output
-    TRISF.F2 = 1;   // SDI -> input
-    TRISF.F12 = 0;   // Default CS -> output (gerekiyorsa baska CS pinine geçilebilir)
-
-    LATF.F12 = 1;    // CS pasif konumda baslat
-}
-void SPI1_Initialize_Master() {
-    SPI1_Init();  // mikroC SPI1 baslatma fonksiyonu
-}
-
-void UART3_Init_Config(unsigned long baudrate) {
-    PPS_Mapping(69, _INPUT,  _U3RX);
-    PPS_Mapping(68, _OUTPUT, _U3TX);
-    UART3_Init(baudrate);
-    Delay_ms(100);
-}
-char buffer[16];
-
-void main() {
-    PLLFBD = 70;
-    CLKDIV = 0x0000;
-
-    SPI1_PPS_Init();             // SPI pin ayarlari
-    SPI1_Initialize_Master();
-    UART3_Init_Config(9600);
-
-    EEPROM_CS_TRIS = 0;
-    EEPROM_CS_Disable();
-
-    UART3_Write_Text(">> EEPROM TEST BASLADI\r\n");
-
-    // 1. Yaz
-    UART3_Write_Text("-> Yaziliyor...\r\n");
-    EEPROM_Write_Bytes(0x0000, "TEST", 4);
-    UART3_Write_Text("-> Yazildi\r\n");
-
-    // 2. Oku
-    UART3_Write_Text("-> Okunuyor...\r\n");
-    EEPROM_Read_Bytes(0x0000, buffer, 4);
-    buffer[4] = '\0';
-    UART3_Write_Text("-> Okuma Tamamlandi\r\n");
-
-    // 3. Sonuç
-    UART3_Write_Text("-> OKUNAN: ");
-    UART3_Write_Text(buffer);
-    UART3_Write_Text("\r\n");
-
-    EEPROM_Read_JEDEC_ID();
-
-    while (1);
-}
-*/
-
-char buffer[16];
-
-#define EEPROM_CS_TRIS   TRISFbits.TRISF12   // RF12 = RP108
-#define EEPROM_CS_LAT    LATFbits.LATF12
-
-void EEPROM_CS_Enable()  { EEPROM_CS_LAT = 0; }
-void EEPROM_CS_Disable() { EEPROM_CS_LAT = 1; }
-
-void EEPROM_Write_Enable() {
-    EEPROM_CS_Enable();
-    SPI1_Write(0x06); // Write Enable komutu
-    EEPROM_CS_Disable();
-    Delay_us(5);
-}
-
-void EEPROM_Write_Bytes(unsigned int addr, char *veri, unsigned char len) {
-    unsigned char i;
-    EEPROM_Write_Enable();
-
-    EEPROM_CS_Enable();
-    SPI1_Write(0x02);                        // WRITE komutu
-    SPI1_Write((addr >> 8) & 0xFF);          // Adres yüksek byte
-    SPI1_Write(addr & 0xFF);                 // Adres düsük byte
-
-    for (i = 0; i < len; i++) {
-        SPI1_Write(veri[i]);
-    }
-
-    EEPROM_CS_Disable();
-    Delay_ms(10); // EEPROM yazma gecikmesi
-}
-
-void EEPROM_Read_Bytes(unsigned int addr, char *buffer, unsigned char len) {
-    unsigned char i;
-
-    EEPROM_CS_Enable();
-    SPI1_Write(0x03);                    // READ komutu
-    SPI1_Write((addr >> 8) & 0xFF);      // Adres yüksek byte
-    SPI1_Write(addr & 0xFF);             // Adres düsük byte
-
-    for (i = 0; i < len; i++) {
-        buffer[i] = SPI1_Read(0xFF);     // Dummy byte gönder, veri al
-    }
-    EEPROM_CS_Disable();
-}
-
-void SPI1_PPS_Init() {
-    PPS_Mapping(96, _OUTPUT, _SCK1OUT);  // SPI CLK (RF0)
-    PPS_Mapping(97, _OUTPUT, _SDO1);     // MOSI (RF1)
-    PPS_Mapping(98, _INPUT,  _SDI1);     // MISO (RF2)
-
-    TRISF.F0 = 0;  // CLK
-    TRISF.F1 = 0;  // MOSI
-    TRISF.F2 = 1;  // MISO
-    TRISF.F12 = 0; // CS
-    LATF.F12 = 1;  // CS pasif
-}
-
-void SPI1_Initialize_Master() {
-    SPI1_Init();  // mikroC SPI baslatma
-}
-
-void UART3_Init_Config(unsigned long baudrate) {
-    PPS_Mapping(69, _INPUT,  _U3RX);     // RP69
-    PPS_Mapping(68, _OUTPUT, _U3TX);     // RP68
-    UART3_Init(baudrate);
-    Delay_ms(100);
-}
-
-void main() {
-    PLLFBD = 70;
-    CLKDIV = 0x0000;
-
-    SPI1_PPS_Init();
-    SPI1_Initialize_Master();
-    UART3_Init_Config(9600);
-
-    EEPROM_CS_TRIS = 0;
-    EEPROM_CS_Disable();
-
-    UART3_Write_Text(">> EEPROM TEST BASLADI\r\n");
-
-    // Yaz
-    UART3_Write_Text("-> Yaziliyor...\r\n");
-    EEPROM_Write_Bytes(0x0000, "TEST", 4);
-    UART3_Write_Text("-> Yazildi\r\n");
-
-    // Oku
-    UART3_Write_Text("-> Okunuyor...\r\n");
-    EEPROM_Read_Bytes(0x0000, buffer, 4);
-    buffer[4] = '\0';
-    UART3_Write_Text("-> Okuma Tamamlandi\r\n");
-
-    // Sonuç
-    UART3_Write_Text("-> OKUNAN: ");
-    UART3_Write_Text(buffer);
-    UART3_Write_Text("\r\n");
-
-    while (1);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-// --- PIN AYARLARI ---
-#define EEPROM_CS LATF.F13
-#define EEPROM_CS_TRIS TRISF.F13
-
-// --- EEPROM KOMUTLARI ---
-#define EEPROM_CMD_WREN  0x06
-#define EEPROM_CMD_WRITE 0x02
-#define EEPROM_CMD_READ  0x03
-
-// --- KULLANILACAK VERI ---
-char write_data[5] = "TEST";   // Yazilacak veri
-char read_data[5];             // Okunan veri buraya gelecek
-unsigned int eeprom_address = 0x0000;
-
-// --- GECIKME YAZMAK IÇIN ---
-void EEPROM_WaitWriteComplete() {
-    Delay_ms(10); // 25CSM04 hizli yaziyor, kisa gecikme genelde yeterli
-}
-
-// --- EEPROM WRITE ENABLE KOMUTU ---
-void EEPROM_WriteEnable() {
-    EEPROM_CS = 0;
-    SPI1_Write(EEPROM_CMD_WREN);
-    EEPROM_CS = 1;
-}
-
-// --- EEPROM VERI YAZMA ---
-void EEPROM_Write(unsigned int address, char *veri, unsigned short len) {
-    unsigned short i;
-    EEPROM_WriteEnable();   // Yazma izni ver
-
-    EEPROM_CS = 0;
-    
-    SPI1_Write(0x02);                       // WRITE komutu
-    SPI1_Write((address >> 8) & 0xFF);      // Üst byte
-    SPI1_Write(address & 0xFF);             // Alt byte
-
-
-    for (i = 0; i < len; i++) {
-        SPI1_Write(veri[i]);
-    }
-
-    EEPROM_CS = 1;
-    EEPROM_WaitWriteComplete();
-}
-
-// --- EEPROM VERI OKUMA ---
-void EEPROM_Read(unsigned int address, char *veri, unsigned short len) {
-    unsigned short i ;
-    EEPROM_CS = 0;
-    
-    SPI1_Write(0x03);                       // READ komutu
-    SPI1_Write((address >> 8) & 0xFF);      // Üst byte
-    SPI1_Write(address & 0xFF);             // Alt byte
-
-
-    for (i= 0; i < len; i++) {
-        veri[i] = SPI1_Read(0xFF);  // Dummy byte gönderip veri oku
-    }
-
-    EEPROM_CS = 1;
-}
-
-// --- PPS AYARLARI (SENIN KODUN) ---
-void SPI1_PPS_Init() {
-    PPS_Mapping(96, _OUTPUT, _SCK1OUT);  // CLK -> RF0
-    PPS_Mapping(97, _OUTPUT, _SDO1);     // MOSI -> RF1
-    PPS_Mapping(98, _INPUT,  _SDI1);     // MISO -> RF2
-
-    TRISF.F0 = 0;  // CLK
-    TRISF.F1 = 0;  // MOSI
-    TRISF.F2 = 1;  // MISO
-
-    EEPROM_CS_TRIS = 0; // CS -> RF13 (RP109)
-    EEPROM_CS = 1;      // CS pasif
-}
-
-// --- UART3 AYARLARI ---
-void UART3_Init_Config(unsigned long baudrate) {
-    PPS_Mapping(69, _INPUT,  _U3RX);     // RX -> RP69
-    PPS_Mapping(68, _OUTPUT, _U3TX);     // TX -> RP68
-    UART3_Init(baudrate);
-    Delay_ms(100);
-}
-
-void SPI1_Initialize_Master() {
-    SPI1_Init();  // mikroC SPI1 baslatma fonksiyonu
-}
-
+// === SABİTLER ===
+#define EEPROM_CMD_WREN   0x06
+#define EEPROM_CMD_WRITE  0x02
+#define EEPROM_CMD_READ   0x03
+#define EEPROM_CMD_RDSR   0x05
+
+// === EEPROM PIN TANIMLARI ===
+#define EEPROM_CS        LATF.F13
+#define EEPROM_CS_TRIS   TRISF.F13
+
+// === STATUS REGISTER OKUMA ===
 unsigned char EEPROM_ReadStatus() {
     unsigned char status;
     EEPROM_CS = 0;
-    SPI1_Write(0x05); // RDSR komutu
+    SPI1_Write(EEPROM_CMD_RDSR);
     status = SPI1_Read(0xFF);
     EEPROM_CS = 1;
     return status;
 }
+
+// === YAZMA İZNİ (WREN) ===
+void EEPROM_WriteEnable() {
+    EEPROM_CS = 0;
+    SPI1_Write(EEPROM_CMD_WREN);
+    EEPROM_CS = 1;
+    Delay_ms(1);
+}
+
+// === SPI PPS AYARI ===
+void SPI1_PPS_Init() {
+    PPS_Mapping(96, _OUTPUT, _SCK1OUT);  // RF0
+    PPS_Mapping(97, _OUTPUT, _SDO1);     // RF1
+    PPS_Mapping(98, _INPUT,  _SDI1);     // RF2
+
+    TRISF.F0 = 0; // CLK
+    TRISF.F1 = 0; // MOSI
+    TRISF.F2 = 1; // MISO
+    EEPROM_CS_TRIS = 0;
+    EEPROM_CS = 1;
+}
+
+// === SPI BAŞLAT ===
+void SPI1_Initialize_Master() {
+    SPI1_Init();
+}
+
+// === UART3 BAŞLAT ===
+void UART3_Init_Config(unsigned long baudrate) {
+    PPS_Mapping(69, _INPUT,  _U3RX);     // RX = RP69
+    PPS_Mapping(68, _OUTPUT, _U3TX);     // TX = RP68
+    UART3_Init(baudrate);
+    Delay_ms(100);
+}
+
+// === ANA PROGRAM ===
 void main() {
-    unsigned char res1, res2, res3;
+    unsigned char status, okunan;
     char txt[10];
 
+    // Sistem saat ayarı (kesin olmalı)
     PLLFBD = 70;
     CLKDIV = 0x0000;
 
+    // Başlatmalar
     SPI1_PPS_Init();
     SPI1_Initialize_Master();
-
     UART3_Init_Config(9600);
-    UART3_Write_Text("SPI TEST BASLIYOR\r\n");
 
+    UART3_Write_Text("\r\n>>> EEPROM TAM TEST (25CSM04) <<<\r\n");
+
+    // Yazma izni ver
+    UART3_Write_Text("WREN gönderiliyor...\r\n");
+    EEPROM_WriteEnable();
+
+    // Status register oku
+    status = EEPROM_ReadStatus();
+    UART3_Write_Text("Status Register: ");
+    ByteToHex(status, txt);
+    UART3_Write_Text(txt);
+    UART3_Write_Text("\r\n");
+
+    if ((status & 0x02) == 0x02)
+        UART3_Write_Text("WEL biti = 1 ✅\r\n");
+    else {
+        UART3_Write_Text("WEL biti = 0 ❌ Yazma iptal!\r\n");
+        while(1);
+    }
+
+    // EEPROM’a 1 byte (A) yaz
+    UART3_Write_Text("EEPROM’a 0x41 ('A') yaziliyor...\r\n");
     EEPROM_CS = 0;
-    SPI1_Write(0x9F);         // JEDEC ID komutu
-    res1 = SPI1_Read(0xFF);   // üretici kodu
-    res2 = SPI1_Read(0xFF);
-    res3 = SPI1_Read(0xFF);
+    SPI1_Write(EEPROM_CMD_WRITE);
+    SPI1_Write(0x00);  // Adres byte 1 (MSB)
+    SPI1_Write(0x00);  // Adres byte 2
+    SPI1_Write(0x00);  // Adres byte 3 (LSB)
+    SPI1_Write('A');   // Veri: 0x41
+    EEPROM_CS = 1;
+    Delay_ms(20);
+
+    // EEPROM’dan oku
+    UART3_Write_Text("EEPROM’dan okuma yapiliyor...\r\n");
+    EEPROM_CS = 0;
+    SPI1_Write(EEPROM_CMD_READ);
+    SPI1_Write(0x00);  // Adres byte 1
+    SPI1_Write(0x00);  // Adres byte 2
+    SPI1_Write(0x00);  // Adres byte 3
+    okunan = SPI1_Read(0xFF);
     EEPROM_CS = 1;
 
-    UART3_Write_Text("JEDEC ID: ");
-    ByteToHex(res1, txt); UART3_Write_Text(txt); UART3_Write_Text(" ");
-    ByteToHex(res2, txt); UART3_Write_Text(txt); UART3_Write_Text(" ");
-    ByteToHex(res3, txt); UART3_Write_Text(txt); UART3_Write_Text("\r\n");
+    // Sonucu UART ile gönder
+    UART3_Write_Text("Okunan byte: ");
+    ByteToHex(okunan, txt);
+    UART3_Write_Text(txt);
+    UART3_Write_Text(" (");
+    UART3_Write(okunan);
+    UART3_Write_Text(")\r\n");
 
     while(1);
 }
-
-
-
-*/
